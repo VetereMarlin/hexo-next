@@ -1,0 +1,31 @@
+<style>
+/* 科技线条（自定义） */
+.post-block, .sidebar-panel { position: relative; }
+.post-block::before, .sidebar-panel::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(0,224,255,0), #00e0ff 18%, #2b7cff 82%, rgba(43,124,255,0));
+  border-radius: 3px;
+  pointer-events: none;
+}
+.post-title { position: relative; padding-left: 12px; }
+.post-title::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 12%; bottom: 12%;
+  width: 3px;
+  background: linear-gradient(180deg, #00e0ff, #2b7cff);
+  border-radius: 2px;
+  box-shadow: 0 0 6px rgba(0,224,255,0.4);
+}
+.site-brand-container { position: relative; }
+.site-brand-container::after {
+  content: "";
+  position: absolute;
+  left: 8px; right: 8px; bottom: 2px;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(0,224,255,0.1), #00e0ff 25%, #2b7cff 75%, rgba(43,124,255,0.1));
+}
+</style>
