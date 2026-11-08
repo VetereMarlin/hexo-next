@@ -11,30 +11,27 @@
   var ctx = c.getContext('2d');
   var DPR = Math.min(window.devicePixelRatio || 1, 2);
   var W, H, pts = [];
-  var mouse = { x: null, y: null, speed: 0 };
+  var mouse = { x: null, y: null };
+  var LINK = 150;
+  var RING_R = 110;
+  var T0 = Date.now();
 
   function init() {
     W = window.innerWidth; H = window.innerHeight;
     c.width = W * DPR; c.height = H * DPR;
     c.style.width = W + 'px'; c.style.height = H + 'px';
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    var n = Math.max(36, Math.min(90, Math.round(W * H / 22000)));
+    var n = Math.max(55, Math.min(120, Math.round(W * H / 15000)));
     pts = [];
     var i;
     for (i = 0; i < n; i++) {
-      pts.push({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - .5) * .35, vy: (Math.random() - .5) * .35 });
+      pts.push({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - .5) * .3, vy: (Math.random() - .5) * .3, ringA: null });
     }
   }
   window.addEventListener('resize', init);
   init();
 
-  function moveMouse(x, y) {
-    if (mouse.x !== null) {
-      var d = Math.hypot(x - mouse.x, y - mouse.y);
-      mouse.speed = Math.max(mouse.speed, d);
-    }
-    mouse.x = x; mouse.y = y;
-  }
+  function moveMouse(x, y) { mouse.x = x; mouse.y = y; }
   window.addEventListener('mousemove', function (e) { moveMouse(e.clientX, e.clientY); });
   window.addEventListener('touchmove', function (e) {
     if (e.touches.length) { moveMouse(e.touches[0].clientX, e.touches[0].clientY); }
@@ -47,36 +44,53 @@
       var p = pts[i];
       var dx = p.x - e.clientX, dy = p.y - e.clientY;
       var d = Math.hypot(dx, dy);
-      if (d < 240 && d > 0.5) {
-        var f = 2.4 - d / 100;
+      if (d < 260 && d > 0.5) {
+        var f = 3.2 - d / 90;
         p.vx += dx / d * f; p.vy += dy / d * f;
+        p.ringA = null;
       }
     }
   });
 
-  var LINK = 140;
   function step() {
+    var T = Date.now() - T0;
+    var rot = T * 0.0008;
     ctx.clearRect(0, 0, W, H);
     var i, j, p, q;
+
     for (i = 0; i < pts.length; i++) {
       p = pts[i];
-      p.vx += (Math.sin(p.y * 0.0016) + (Math.random() - .5) * .012) * 0.006;
-      p.vy += (Math.cos(p.x * 0.0016) + (Math.random() - .5) * .012) * 0.006;
+      var inRingZone = false;
       if (mouse.x !== null) {
         var mdx = mouse.x - p.x, mdy = mouse.y - p.y;
         var md = Math.hypot(mdx, mdy);
-        if (md < 200 && md > 1) {
-          var f = mouse.speed > 14 ? -0.05 : 0.022;
-          p.vx += mdx / md * f; p.vy += mdy / md * f;
+        if (md < 300) {
+          inRingZone = true;
+          if (p.ringA === null) {
+            p.ringA = Math.atan2(-mdy, -mdx);
+          }
+          var tx = mouse.x + RING_R * Math.cos(p.ringA + rot);
+          var ty = mouse.y + RING_R * Math.sin(p.ringA + rot);
+          p.vx += (tx - p.x) * 0.03;
+          p.vy += (ty - p.y) * 0.03;
         }
       }
-      p.vx *= 0.985; p.vy *= 0.985;
+      if (!inRingZone) {
+        p.ringA = null;
+        var ang = Math.sin(p.y * 0.0021 + T * 0.00035) + Math.cos(p.x * 0.0018 + T * 0.00028);
+        p.vx += Math.cos(ang * 3.1416) * 0.012;
+        p.vy += Math.sin(ang * 3.1416) * 0.012;
+      }
+      p.vx *= 0.97; p.vy *= 0.97;
+      var sp = Math.hypot(p.vx, p.vy);
+      if (sp > 2.2) { p.vx *= 2.2 / sp; p.vy *= 2.2 / sp; }
       p.x += p.vx; p.y += p.vy;
       if (p.x < -20) p.x = W + 20;
       if (p.x > W + 20) p.x = -20;
       if (p.y < -20) p.y = H + 20;
       if (p.y > H + 20) p.y = -20;
     }
+
     ctx.lineWidth = 1;
     for (i = 0; i < pts.length; i++) {
       p = pts[i];
@@ -84,26 +98,24 @@
         q = pts[j];
         var dx2 = p.x - q.x, dy2 = p.y - q.y, d2 = dx2 * dx2 + dy2 * dy2;
         if (d2 < LINK * LINK) {
-          var a = (1 - Math.sqrt(d2) / LINK) * 0.5;
+          var a = (1 - Math.sqrt(d2) / LINK) * 0.55;
           ctx.strokeStyle = 'rgba(0,170,220,' + a.toFixed(3) + ')';
           ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
         }
       }
-      if (mouse.x !== null) {
-        var mx = p.x - mouse.x, my = p.y - mouse.y, md2 = mx * mx + my * my;
-        if (md2 < 32400) {
-          var a2 = (1 - Math.sqrt(md2) / 180) * 0.6;
-          ctx.strokeStyle = 'rgba(43,124,255,' + a2.toFixed(3) + ')';
-          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(mouse.x, mouse.y); ctx.stroke();
-        }
-      }
     }
-    ctx.fillStyle = 'rgba(0,190,240,0.55)';
+
+    if (mouse.x !== null) {
+      ctx.strokeStyle = 'rgba(43,124,255,0.16)';
+      ctx.beginPath(); ctx.arc(mouse.x, mouse.y, RING_R, 0, 6.283); ctx.stroke();
+    }
+
+    ctx.fillStyle = 'rgba(0,190,240,0.6)';
     for (i = 0; i < pts.length; i++) {
       p = pts[i];
       ctx.beginPath(); ctx.arc(p.x, p.y, 1.4, 0, 6.283); ctx.fill();
     }
-    mouse.speed *= 0.9;
+
     requestAnimationFrame(step);
   }
   requestAnimationFrame(step);
