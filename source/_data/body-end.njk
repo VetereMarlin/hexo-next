@@ -1,7 +1,7 @@
 <canvas id="tech-bg" aria-hidden="true"></canvas>
 <style>
 #tech-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
-@media (prefers-color-scheme: dark) { #tech-bg { opacity: 0.55; } }
+@media (prefers-color-scheme: dark) { #tech-bg { opacity: 0.5; } }
 </style>
 <script>
 (function () {
@@ -12,8 +12,8 @@
   var DPR = Math.min(window.devicePixelRatio || 1, 2);
   var W, H, pts = [];
   var mouse = { x: null, y: null };
-  var LINK = 150;
-  var RING_R = 110;
+  var LINK = 160;
+  var HUB_R = 320;
   var T0 = Date.now();
 
   function init() {
@@ -21,11 +21,11 @@
     c.width = W * DPR; c.height = H * DPR;
     c.style.width = W + 'px'; c.style.height = H + 'px';
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    var n = Math.max(55, Math.min(120, Math.round(W * H / 15000)));
+    var n = Math.max(60, Math.min(130, Math.round(W * H / 14000)));
     pts = [];
     var i;
     for (i = 0; i < n; i++) {
-      pts.push({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - .5) * .3, vy: (Math.random() - .5) * .3, ringA: null });
+      pts.push({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - .5) * .3, vy: (Math.random() - .5) * .3 });
     }
   }
   window.addEventListener('resize', init);
@@ -34,56 +34,33 @@
   function moveMouse(x, y) { mouse.x = x; mouse.y = y; }
   window.addEventListener('mousemove', function (e) { moveMouse(e.clientX, e.clientY); });
   window.addEventListener('touchmove', function (e) {
-    if (e.touches.length) { moveMouse(e.touches[0].clientX, e.touches[0].clientY); }
+    if (e.touches.length) moveMouse(e.touches[0].clientX, e.touches[0].clientY);
   }, { passive: true });
+  window.addEventListener('touchend', function () { mouse.x = null; mouse.y = null; });
   window.addEventListener('mouseleave', function () { mouse.x = null; mouse.y = null; });
-
-  window.addEventListener('click', function (e) {
-    var i;
-    for (i = 0; i < pts.length; i++) {
-      var p = pts[i];
-      var dx = p.x - e.clientX, dy = p.y - e.clientY;
-      var d = Math.hypot(dx, dy);
-      if (d < 260 && d > 0.5) {
-        var f = 3.2 - d / 90;
-        p.vx += dx / d * f; p.vy += dy / d * f;
-        p.ringA = null;
-      }
-    }
-  });
 
   function step() {
     var T = Date.now() - T0;
-    var rot = T * 0.0008;
     ctx.clearRect(0, 0, W, H);
     var i, j, p, q;
 
     for (i = 0; i < pts.length; i++) {
       p = pts[i];
-      var inRingZone = false;
+      var ang = Math.sin(p.y * 0.0020 + T * 0.00033) + Math.cos(p.x * 0.0017 + T * 0.00026);
+      p.vx += Math.cos(ang * 3.1416) * 0.011;
+      p.vy += Math.sin(ang * 3.1416) * 0.011;
       if (mouse.x !== null) {
         var mdx = mouse.x - p.x, mdy = mouse.y - p.y;
         var md = Math.hypot(mdx, mdy);
-        if (md < 300) {
-          inRingZone = true;
-          if (p.ringA === null) {
-            p.ringA = Math.atan2(-mdy, -mdx);
-          }
-          var tx = mouse.x + RING_R * Math.cos(p.ringA + rot);
-          var ty = mouse.y + RING_R * Math.sin(p.ringA + rot);
-          p.vx += (tx - p.x) * 0.03;
-          p.vy += (ty - p.y) * 0.03;
+        if (md < HUB_R && md > 4) {
+          var f = 0.13 * (1 - md / HUB_R);
+          p.vx += mdx / md * f;
+          p.vy += mdy / md * f;
         }
-      }
-      if (!inRingZone) {
-        p.ringA = null;
-        var ang = Math.sin(p.y * 0.0021 + T * 0.00035) + Math.cos(p.x * 0.0018 + T * 0.00028);
-        p.vx += Math.cos(ang * 3.1416) * 0.012;
-        p.vy += Math.sin(ang * 3.1416) * 0.012;
       }
       p.vx *= 0.97; p.vy *= 0.97;
       var sp = Math.hypot(p.vx, p.vy);
-      if (sp > 2.2) { p.vx *= 2.2 / sp; p.vy *= 2.2 / sp; }
+      if (sp > 2.0) { p.vx *= 2.0 / sp; p.vy *= 2.0 / sp; }
       p.x += p.vx; p.y += p.vy;
       if (p.x < -20) p.x = W + 20;
       if (p.x > W + 20) p.x = -20;
@@ -96,24 +73,34 @@
       p = pts[i];
       for (j = i + 1; j < pts.length; j++) {
         q = pts[j];
-        var dx2 = p.x - q.x, dy2 = p.y - q.y, d2 = dx2 * dx2 + dy2 * dy2;
+        var dx = p.x - q.x, dy = p.y - q.y, d2 = dx * dx + dy * dy;
         if (d2 < LINK * LINK) {
           var a = (1 - Math.sqrt(d2) / LINK) * 0.55;
-          ctx.strokeStyle = 'rgba(0,170,220,' + a.toFixed(3) + ')';
+          ctx.strokeStyle = 'rgba(122,132,225,' + a.toFixed(3) + ')';
           ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
         }
       }
     }
 
     if (mouse.x !== null) {
-      ctx.strokeStyle = 'rgba(43,124,255,0.16)';
-      ctx.beginPath(); ctx.arc(mouse.x, mouse.y, RING_R, 0, 6.283); ctx.stroke();
+      for (i = 0; i < pts.length; i++) {
+        p = pts[i];
+        var hx = p.x - mouse.x, hy = p.y - mouse.y;
+        var hd = Math.hypot(hx, hy);
+        if (hd < HUB_R) {
+          var ha = (1 - hd / HUB_R) * 0.75 + 0.08;
+          ctx.strokeStyle = 'rgba(96,110,230,' + ha.toFixed(3) + ')';
+          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(mouse.x, mouse.y); ctx.stroke();
+        }
+      }
+      ctx.fillStyle = 'rgba(96,110,230,0.9)';
+      ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 2.5, 0, 6.283); ctx.fill();
     }
 
-    ctx.fillStyle = 'rgba(0,190,240,0.6)';
+    ctx.fillStyle = 'rgba(122,132,225,0.6)';
     for (i = 0; i < pts.length; i++) {
       p = pts[i];
-      ctx.beginPath(); ctx.arc(p.x, p.y, 1.4, 0, 6.283); ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, 1.5, 0, 6.283); ctx.fill();
     }
 
     requestAnimationFrame(step);
