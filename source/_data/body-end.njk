@@ -1,110 +1,148 @@
-<canvas id="tech-bg" aria-hidden="true"></canvas>
-<style>
-#tech-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
-@media (prefers-color-scheme: dark) { #tech-bg { opacity: 0.5; } }
-</style>
 <script>
-(function () {
-  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduce) return;
-  var c = document.getElementById('tech-bg');
-  var ctx = c.getContext('2d');
-  var DPR = Math.min(window.devicePixelRatio || 1, 2);
-  var W, H, pts = [];
-  var mouse = { x: null, y: null };
-  var LINK = 160;
-  var HUB_R = 320;
-  var T0 = Date.now();
+/* 背景线条动画：用户提供源码，算法逻辑未改动；
+   仅做 4 处博客集成所必需的最小适配，见各处"集成适配"注释 */
+!function () {
+    let num = 100;
+    //设置所画线的颜色
+    let colorLine = "138,43,226"
+    //创建画布
+    let canvas = document.createElement('canvas');
+    //集成适配1：固定为全屏背景层并挂载到 body（原代码挂到第一个 div 且无定位，会挤坏页面布局）
+    canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;pointer-events:none;';
+    document.body.appendChild(canvas);
+    let ctx = canvas.getContext('2d');
+    //获取当前页面的宽高,并同时设置给予画布
+    let myWidth = canvas.width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+    let myHeight = canvas.height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+    let newCircleArray, allCircle = []
 
-  function init() {
-    W = window.innerWidth; H = window.innerHeight;
-    c.width = W * DPR; c.height = H * DPR;
-    c.style.width = W + 'px'; c.style.height = H + 'px';
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    var n = Math.max(60, Math.min(130, Math.round(W * H / 14000)));
-    pts = [];
-    var i;
-    for (i = 0; i < n; i++) {
-      pts.push({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - .5) * .3, vy: (Math.random() - .5) * .3 });
+    //获取动画帧，用于更新动画
+    let ani = window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.oRequestAnimationFrame || window.msRequestAnimationFrame ||
+        function (n) {
+            window.setTimeout(n, 1e3 / 45)
+        };
+
+    //集成适配2：窗口尺寸变化时同步画布大小（原代码只在加载时取一次尺寸）
+    window.addEventListener('resize', function () {
+        myWidth = canvas.width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+        myHeight = canvas.height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+    });
+
+    //首先创建两百个点，随机分布在屏幕当中
+    for (let i = 0; i < num; i++) {
+        let x = Math.random() * myWidth;
+        let y = Math.random() * myHeight;
+        //便宜量
+        let offX = Math.random() * 2 - 1;
+        let offY = Math.random() * 2 - 1;
+        //将所画圆的坐标存储在数组当中
+        allCircle.push({x: x, y: y, offX: offX * .5, offY: offY * .5, maxLen: 8e3})
+        drawCircle(x, y, .5)
     }
-  }
-  window.addEventListener('resize', init);
-  init();
 
-  function moveMouse(x, y) { mouse.x = x; mouse.y = y; }
-  window.addEventListener('mousemove', function (e) { moveMouse(e.clientX, e.clientY); });
-  window.addEventListener('touchmove', function (e) {
-    if (e.touches.length) moveMouse(e.touches[0].clientX, e.touches[0].clientY);
-  }, { passive: true });
-  window.addEventListener('touchend', function () { mouse.x = null; mouse.y = null; });
-  window.addEventListener('mouseleave', function () { mouse.x = null; mouse.y = null; });
+    //画圆函数
+    function drawCircle(x, y, r, startAngel = 0, endAngel = Math.PI * 2) {
+        ctx.save()
+        ctx.beginPath();
+        ctx.arc(x, y, r, startAngel, endAngel);
+        ctx.fillStyle = "red"
+        ctx.fill()
+        ctx.restore()
+    }
 
-  function step() {
-    var T = Date.now() - T0;
-    ctx.clearRect(0, 0, W, H);
-    var i, j, p, q;
-
-    for (i = 0; i < pts.length; i++) {
-      p = pts[i];
-      var ang = Math.sin(p.y * 0.0020 + T * 0.00033) + Math.cos(p.x * 0.0017 + T * 0.00026);
-      p.vx += Math.cos(ang * 3.1416) * 0.011;
-      p.vy += Math.sin(ang * 3.1416) * 0.011;
-      if (mouse.x !== null) {
-        var mdx = mouse.x - p.x, mdy = mouse.y - p.y;
-        var md = Math.hypot(mdx, mdy);
-        if (md < HUB_R && md > 4) {
-          var f = 0.13 * (1 - md / HUB_R);
-          p.vx += mdx / md * f;
-          p.vy += mdy / md * f;
+    function moveCircle() {
+        ctx.clearRect(0, 0, myWidth, myHeight)
+        allCircle.forEach((value, index) => {
+            //偏移量取-1到1，存储在数组当中直接使用
+            value.x += value.offX
+            value.y += value.offY
+            //在进行位移后，如果坐标超出了屏幕，需要对便宜量进行取反
+            value.offX *= value.x > myWidth || value.x < 0 ? -1 : 1;
+            value.offY *= value.y > myHeight || value.y < 0 ? -1 : 1;
+            drawCircle(value.x, value.y, .5)
+        })
+        drawLine()
+        ani(moveCircle)
+    }
+    let mouse = {x: null, y: null, maxLen: 6e3};
+    //将鼠标坐标添加进所有圆点数组当中
+    newCircleArray = allCircle.concat([mouse]);
+    console.log(newCircleArray);
+    //给鼠标添加移动事件
+    document.onmousemove = function (e) {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+    }
+    //集成适配3：仅在鼠标真正离开窗口时清空（原 mouseout 在跨越任意元素边界时都会触发，会不断打断吸附效果）
+    document.onmouseout = function (e) {
+        if (!e.relatedTarget) {
+            mouse.x = null;
+            mouse.y = null;
         }
-      }
-      p.vx *= 0.97; p.vy *= 0.97;
-      var sp = Math.hypot(p.vx, p.vy);
-      if (sp > 2.0) { p.vx *= 2.0 / sp; p.vy *= 2.0 / sp; }
-      p.x += p.vx; p.y += p.vy;
-      if (p.x < -20) p.x = W + 20;
-      if (p.x > W + 20) p.x = -20;
-      if (p.y < -20) p.y = H + 20;
-      if (p.y > H + 20) p.y = -20;
     }
-
-    ctx.lineWidth = 1;
-    for (i = 0; i < pts.length; i++) {
-      p = pts[i];
-      for (j = i + 1; j < pts.length; j++) {
-        q = pts[j];
-        var dx = p.x - q.x, dy = p.y - q.y, d2 = dx * dx + dy * dy;
-        if (d2 < LINK * LINK) {
-          var a = (1 - Math.sqrt(d2) / LINK) * 0.55;
-          ctx.strokeStyle = 'rgba(122,132,225,' + a.toFixed(3) + ')';
-          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+    //集成适配4：触屏支持（手机没有 mousemove，不加这个在手机上吸附永远不会触发）
+    document.addEventListener('touchmove', function (e) {
+        if (e.touches.length) {
+            mouse.x = e.touches[0].clientX;
+            mouse.y = e.touches[0].clientY;
         }
-      }
-    }
+    }, {passive: true});
+    document.addEventListener('touchend', function () {
+        mouse.x = null;
+        mouse.y = null;
+    });
+    //进行画线
+    function drawLine() {
+        allCircle.forEach(function (value, index) {
+            //对所有圆点进行遍历，如果有满足条件的则进行连线
+            //1、判断两点的距离是否满足设定值
 
-    if (mouse.x !== null) {
-      for (i = 0; i < pts.length; i++) {
-        p = pts[i];
-        var hx = p.x - mouse.x, hy = p.y - mouse.y;
-        var hd = Math.hypot(hx, hy);
-        if (hd < HUB_R) {
-          var ha = (1 - hd / HUB_R) * 0.75 + 0.08;
-          ctx.strokeStyle = 'rgba(96,110,230,' + ha.toFixed(3) + ')';
-          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(mouse.x, mouse.y); ctx.stroke();
-        }
-      }
-      ctx.fillStyle = 'rgba(96,110,230,0.9)';
-      ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 2.5, 0, 6.283); ctx.fill();
-    }
+            //value值和剩余的圆点数据进行匹配
+            for (let i = index + 1; i < newCircleArray.length; i++) {
+                if (newCircleArray[i].x != null && newCircleArray[i].y != null) {
+                    let xWidth, yHeight;
+                    xWidth = (newCircleArray[i].x - value.x) * (newCircleArray[i].x - value.x);
+                    yHeight = (newCircleArray[i].y - value.y) * (newCircleArray[i].y - value.y);
+                    //斜边的平方
+                    let zLen = xWidth + yHeight;
+                    //向连线方向进行偏移
+                    if (zLen < value.maxLen) {
+                        if (newCircleArray[i] === mouse && mouse.x != null && zLen > mouse.maxLen) {
+                            //如果连线的是鼠标这个点，那么在达到最大长度时，需要修改偏移量,进行反向偏移一段距离，看起来会有跟随效果
+                            //可自行调整相乘的小数值，越大吸附能力越强，同时抖动也越厉害
+                            value.x += (newCircleArray[i].x - value.x) * .01
+                            value.y += (newCircleArray[i].y - value.y) * .01
+                        }
+                        //计算透明度
+                        let opacity = 1 - zLen / value.maxLen
+                        ctx.save()
+                        //满足条件，开始连线
+                        ctx.beginPath();
+                        //设置画笔起始点
+                        ctx.moveTo(value.x, value.y);
+                        //设置画笔终点
+                        ctx.lineTo(newCircleArray[i].x, newCircleArray[i].y);
+                        //1、单一颜色写法
+                        // ctx.strokeStyle = "rgba("+colorLine+","+opacity+")";
+                        //2、渐变线条写法
+                        let grd = ctx.createLinearGradient(value.x, value.y, newCircleArray[i].x, newCircleArray[i].y)
+                        grd.addColorStop(1 / 7, "rgba(255,0,0," + opacity + ")");
+                        grd.addColorStop(2 / 7, "rgba(255,165,0," + opacity + ")");
+                        grd.addColorStop(3 / 7, "rgba(255,255,0," + opacity + ")");
+                        grd.addColorStop(4 / 7, "rgba(0,255,0," + opacity + ")");
+                        grd.addColorStop(5 / 7, "rgba(0,255,255," + opacity + ")");
+                        grd.addColorStop(6 / 7, "rgba(0,0,255," + opacity + ")");
+                        grd.addColorStop(1, "rgba(139,0,255," + opacity + ")");
+                        ctx.strokeStyle = grd
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+                }
 
-    ctx.fillStyle = 'rgba(122,132,225,0.6)';
-    for (i = 0; i < pts.length; i++) {
-      p = pts[i];
-      ctx.beginPath(); ctx.arc(p.x, p.y, 1.5, 0, 6.283); ctx.fill();
+            }
+        })
     }
-
-    requestAnimationFrame(step);
-  }
-  requestAnimationFrame(step);
-})();
+    //让圆动起来
+    moveCircle()
+}();
 </script>
